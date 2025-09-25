@@ -1,0 +1,60 @@
+.feed-post__media {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.feed-media {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.feed-media img,
+.feed-media video,
+.feed-media iframe {
+  width: 100%;
+  display: block;
+}
+
+.feed-media--youtube {
+  cursor: pointer;
+  background: #000;
+}
+
+.feed-media__thumb {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.feed-media__play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 32px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.feed-media__play:hover {
+  background: rgba(24, 119, 242, 0.85);
+  transform: translate(-50%, -50%) scale(1.05);
+}
+
+.feed-media--youtube iframe {
+  aspect-ratio: 16 / 9;
+  border: none;
+}

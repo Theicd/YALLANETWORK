@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>יאללה תקשורת</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="./styles/facebook-theme.css">
+    <link rel="stylesheet" href="./styles/media-overrides.css">
+    <script src="./auth-guard.js"></script>
+</head>
+<body>
+    <div id="connection-status" class="connection-toast">
+        מתחבר לריליים...
+    </div>
+    <div class="app-shell">
+        <header class="top-bar">
+            <span class="app-name">יאללה תקשורת</span>
+            <div class="top-bar__actions">
+                <button class="circle-button" onclick="openCompose()" aria-label="פוסט חדש">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+                <button class="circle-button" aria-label="חיפוש">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+                <button class="circle-button" aria-label="הודעות">
+                    <i class="fa-brands fa-facebook-messenger"></i>
+                </button>
+                <button class="circle-button" onclick="openKeyViewer()" aria-label="הצגת מפתח">
+                    <i class="fa-solid fa-key"></i>
+                </button>
+                <button class="circle-button" onclick="openAccount()" aria-label="ניהול חשבון">
+                    <i class="fa-solid fa-user-shield"></i>
+                </button>
+            </div>
+        </header>
+        <nav class="primary-nav" aria-label="ניווט ראשי">
+            <button class="nav-item is-active" data-nav="home">
+                <i class="fa-solid fa-house"></i>
+                <span>בית</span>
+            </button>
+            <button class="nav-item" data-nav="videos">
+                <i class="fa-solid fa-clapperboard"></i>
+                <span>וידאו</span>
+            </button>
+            <button class="nav-item" data-nav="friends">
+                <i class="fa-solid fa-user-group"></i>
+                <span>חברים</span>
+            </button>
+            <button class="nav-item" data-nav="market">
+                <i class="fa-solid fa-store"></i>
+                <span>מרקט</span>
+            </button>
+            <button class="nav-item" data-nav="notifications">
+                <i class="fa-solid fa-bell"></i>
+                <span>התראות</span>
+            </button>
+            <button class="nav-item" data-nav="profile" onclick="openProfilePage()">
+                <span class="nav-avatar" id="navProfileAvatar">?</span>
+                <span>הפרופיל שלי</span>
+            </button>
+        </nav>
+        <section class="composer-card">
+            <div class="composer-header">
+                <div class="profile-inline">
+                    <div class="profile-avatar" id="profileAvatar">?</div>
+                    <div class="profile-text">
+                        <span class="profile-name" id="profileName">משתמש</span>
+                        <span class="profile-bio" id="profileBio">ברוך הבא ליאללה תקשורת</span>
+                    </div>
+                </div>
+                <button class="link-button" onclick="openProfileSettings()">ערוך פרופיל</button>
+            </div>
+            <div class="composer-body">
+                <button class="composer-trigger" onclick="openCompose()">מה בא לך לשתף?</button>
+                <button class="composer-media" type="button" onclick="document.getElementById('composeMediaInput').click()">
+                    <i class="fa-regular fa-image"></i>
+                    <span>תמונה/וידאו</span>
+                </button>
+                <input id="composeMediaInput" type="file" accept="image/*,video/*" hidden>
+            </div>
+        </section>
+        <main class="feed-list" id="feed">
+            <div class="feed-empty" id="empty-state">
+                <i class="fa-regular fa-face-smile"></i>
+                <p>אין פוסטים עדיין. שתף משהו ראשון!</p>
+            </div>
+        </main>
+    </div>
+    <div class="compose-modal" id="composeModal" aria-hidden="true">
+        <div class="compose-dialog" role="dialog" aria-modal="true">
+            <div class="profile-inline">
+                <div class="profile-avatar" id="composeProfileAvatar">?</div>
+                <div class="profile-text">
+                    <span class="profile-name" id="composeProfileName">משתמש</span>
+                    <span class="profile-bio" id="composeProfileBio">שתף את המחשבות שלך</span>
+                </div>
+            </div>
+            <textarea id="postText" placeholder="מה בא לך לשתף?"></textarea>
+            <div id="composeMediaPreview" class="compose-media-preview">
+                <img id="composeMediaPreviewImage" alt="תצוגה מקדימה לתמונה">
+                <video id="composeMediaPreviewVideo" controls playsinline></video>
+            </div>
+            <div id="composeStatus" class="p2p-status"></div>
+            <div class="compose-dialog__actions">
+                <button class="button-secondary" onclick="closeCompose()">ביטול</button>
+                <button class="button-primary" onclick="publishPost()">פרסם</button>
+            </div>
+        </div>
+    </div>
+    <div class="modal" id="profileModal">
+        <div class="modal-content">
+            <h2>עריכת פרופיל</h2>
+            <label for="profileNameInput">שם משתמש</label>
+            <input id="profileNameInput" type="text" placeholder="הכנס שם מלא">
+            <label for="profileBioInput">תיאור קצר</label>
+            <textarea id="profileBioInput" rows="3" placeholder="ספר על עצמך"></textarea>
+            <label for="profileImageUrlInput">קישור לתמונת פרופיל</label>
+            <input id="profileImageUrlInput" type="url" placeholder="https://example.com/avatar.jpg">
+            <label for="profileImageFileInput">או העלה תמונה מהמחשב</label>
+            <input id="profileImageFileInput" type="file" accept="image/*">
+            <div class="modal-actions">
+                <button class="icon-button" onclick="closeProfileSettings()">ביטול</button>
+                <button class="icon-button" onclick="saveProfileSettings()">שמירה</button>
+            </div>
+            <div class="p2p-status" id="profileStatus"></div>
+        </div>
+    </div>
+    <div class="modal" id="accountModal">
+        <div class="modal-content account-modal">
+            <h2>גישה ממכשירים נוספים</h2>
+            <section>
+                <h3>ייצוא</h3>
+                <p>שמור את המפתח הפרטי שלך בצורה בטוחה. תצטרך אותו כדי להתחבר ממכשיר אחר.</p>
+                <textarea id="accountExportKey" readonly></textarea>
+                <div class="modal-actions">
+                    <button class="icon-button" id="accountCopyKeyButton">העתק</button>
+                    <button class="icon-button" id="accountDownloadBackupButton">הורדת גיבוי</button>
+                </div>
+            </section>
+            <section>
+                <h3>ייבוא</h3>
+                <p>הדבק כאן מפתח פרטי כדי להתחבר למשתמש קיים.</p>
+                <textarea id="accountImportInput" placeholder="npub / hex / מפתח מגובה"></textarea>
+                <div class="modal-actions">
+                    <button class="button-secondary" onclick="closeAccount()">ביטול</button>
+                    <button class="button-primary" id="accountImportButton">ייבוא</button>
+                </div>
+                <div class="p2p-status" id="accountStatus"></div>
+            </section>
+            <section>
+                <h3>תצוגת מפתח</h3>
+                <p>לחיצה על הכפתור תציג את המפתח שלך לתצוגה בלבד.</p>
+                <div class="modal-actions">
+                    <button class="icon-button" onclick="openKeyViewer()">הצג מפתח</button>
+                </div>
+            </section>
+        </div>
+    </div>
+    <div class="modal" id="keyModal">
+        <div class="modal-content key-modal">
+            <h2>המפתח הפרטי שלך</h2>
+            <textarea id="keyViewerTextarea" readonly></textarea>
+            <div class="modal-actions">
+                <button class="icon-button" onclick="copyKeyViewer()">העתק</button>
+                <button class="button-secondary" onclick="closeKeyViewer()">סגור</button>
+            </div>
+            <div class="modal-actions">
+                <button class="button-secondary" onclick="logoutAndSwitchUser()">התנתק והחלף משתמש</button>
+            </div>
+            <div class="p2p-status" id="keyViewerStatus"></div>
+        </div>
+    </div>
+    <script src="https://unpkg.com/nostr-tools@2.7.2/lib/nostr.bundle.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/webtorrent@1.9.7/webtorrent.min.js"></script>
+    <script src="./config.js"></script>
+    <script src="./secure-channel.js"></script>
+    <script src="./key-utils.js"></script>
+    <script src="./utils.js"></script>
+    <script src="./keys.js"></script>
+    <script src="./profile.js"></script>
+    <script src="./account.js"></script>
+    <script src="./key-viewer.js"></script>
+    <script src="./media.js"></script>
+    <script src="./post-actions.js"></script>
+    <script src="./navigation.js"></script>
+    <script src="./compose.js"></script>
+    <script src="./feed.js"></script>
+    <script src="./app.js"></script>
+</body>
+</html>

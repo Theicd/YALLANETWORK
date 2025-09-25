@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="he">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>יאללה תקשורת – כניסה</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <link rel="stylesheet" href="./styles/auth.css" />
+  </head>
+  <body class="auth-body">
+    <div class="auth-shell">
+      <section class="auth-brand">
+        <h1 class="auth-brand__title">יאללה תקשורת</h1>
+        <p class="auth-brand__subtitle">
+          רשת קהילה חיה ומבוזרת על גבי Nostr. שמרו את המפתח שלכם ותוכלו
+          לגשת לכל הפוסטים, החברים והשיחות מכל מכשיר.
+        </p>
+        <div class="auth-links">
+          <span><i class="fa-solid fa-shield-halved"></i> המפתח הפרטי הוא הזהות שלכם. שמרו עליו במקום מאובטח.</span>
+          <span><i class="fa-solid fa-mobile-screen-button"></i> אפשר להתחבר מטלפון, טאבלט או מחשב באמצעות אותו מפתח.</span>
+        </div>
+      </section>
+      <section class="auth-card" aria-live="polite">
+        <div class="auth-tabs" role="tablist">
+          <button class="auth-tab is-active" data-tab="create" role="tab" aria-selected="true">
+            משתמש חדש
+          </button>
+          <button class="auth-tab" data-tab="import" role="tab" aria-selected="false">
+            כבר יש לי מפתח
+          </button>
+        </div>
+        <div class="auth-panel is-active" id="authCreatePanel" role="tabpanel">
+          <h3>קבלו מפתח חדש</h3>
+          <p>
+            ניצור עבורך מפתח פרטי חדש. העתק אותו ושמור אותו לפני שאתה ממשיך – אין דרך לשחזר אותו אם תאבד אותו.
+          </p>
+          <textarea id="authCreateKey" class="auth-textarea" readonly placeholder="לחץ \"צור מפתח\" כדי לקבל מפתח חדש"></textarea>
+          <div class="auth-actions">
+            <button class="button-primary" id="authGenerateButton">
+              <i class="fa-solid fa-key"></i>
+              צור מפתח
+            </button>
+            <button class="button-secondary" id="authCopyCreateButton" disabled>
+              <i class="fa-solid fa-copy"></i>
+              העתק
+            </button>
+            <button class="button-secondary" id="authDownloadCreateButton" disabled>
+              <i class="fa-solid fa-file-arrow-down"></i>
+              הורד גיבוי
+            </button>
+          </div>
+          <label class="auth-checkbox">
+            <input type="checkbox" id="authCreateConfirm" />
+            שמרתי את המפתח במקום בטוח ואני מבין שאם אאבד אותו לא אוכל להיכנס שוב.
+          </label>
+          <button class="button-primary" id="authContinueButton" disabled>
+            המשך לרשת
+          </button>
+          <div class="auth-status" id="authCreateStatus"></div>
+        </div>
+        <div class="auth-panel" id="authImportPanel" role="tabpanel">
+          <h3>ייבוא מפתח קיים</h3>
+          <p>
+            הדבק כאן את המפתח הפרטי שלך (nsec או hex). נשמור אותו בדפדפן ונתחבר לאותו פרופיל.
+          </p>
+          <textarea id="authImportInput" class="auth-textarea" placeholder="לדוגמה: nsec1... או 64 תווים ב-hex"></textarea>
+          <div class="auth-actions">
+            <button class="button-primary" id="authImportButton">
+              <i class="fa-solid fa-arrow-right-to-bracket"></i>
+              ייבוא והמשך
+            </button>
+          </div>
+          <div class="auth-status" id="authImportStatus"></div>
+        </div>
+      </section>
+    </div>
+    <script src="https://unpkg.com/nostr-tools@2.7.2/lib/nostr.bundle.js"></script>
+    <script src="./config.js"></script>
+    <script src="./key-utils.js"></script>
+    <script src="./keys.js"></script>
+    <script src="./auth.js"></script>
+  </body>
+</html>
