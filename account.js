@@ -38,6 +38,14 @@
     const nip19 = App.nip19 || window.NostrTools?.nip19;
     if (!nip19) return trimmed;
     try {
+      // חלק ניהול חשבון (account.js) – nip19 מצפה ל-Uint8Array ולכן ממירים את המחרוזת למערך בתים
+      if (/^[0-9a-fA-F]{64}$/.test(trimmed)) {
+        const bytes = new Uint8Array(trimmed.length / 2);
+        for (let i = 0; i < trimmed.length; i += 2) {
+          bytes[i / 2] = parseInt(trimmed.slice(i, i + 2), 16);
+        }
+        return nip19.nsecEncode(bytes);
+      }
       return nip19.nsecEncode(trimmed);
     } catch (err) {
       console.warn('Failed to encode nsec', err);
