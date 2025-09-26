@@ -298,24 +298,9 @@
           </button>
           ${deleteButtonHtml}
         </div>
-        <div class="feed-post__reactions" data-reaction-target="${event.id}">
-          <span class="feed-post__reactions-count">0 אהבו</span>
-        </div>
       `;
 
-      if (typeof App.mountReactions === 'function') {
-        App.mountReactions(article, {
-          eventId: event.id,
-          authorPubkey: event.pubkey,
-        });
-      }
-
       feed.appendChild(article);
-    }
-
-    if (typeof App.loadReactionsForPosts === 'function') {
-      const reactionTargets = visibleEvents.map((item) => ({ id: item.id, pubkey: item.pubkey }));
-      App.loadReactionsForPosts(reactionTargets);
     }
   }
 
@@ -391,15 +376,6 @@
   }
 
   async function likePost(eventId) {
-    // חלק ריאקציות (feed.js) – מסננים ריליים הדורשים POW או תשלום כדי למנוע קריסת פרסום
-    const publishRelays = (Array.isArray(App.relayUrls) ? App.relayUrls : []).filter((url) => {
-      if (!url || typeof url !== 'string') {
-        return false;
-      }
-      const lowered = url.toLowerCase();
-      return !lowered.includes('nostr.wine') && !lowered.includes('nostr.land');
-    });
-
     const draft = {
       kind: 7,
       pubkey: App.publicKey,
@@ -410,12 +386,8 @@
     const event = App.finalizeEvent(draft, App.privateKey);
 
     try {
-      const targetRelays = publishRelays.length ? publishRelays : App.relayUrls;
-      await App.pool.publish(targetRelays, event);
+      await App.pool.publish(App.relayUrls, event);
       console.log('Liked event');
-      if (typeof App.recordLocalReaction === 'function') {
-        App.recordLocalReaction(eventId, App.publicKey, '+');
-      }
     } catch (e) {
       console.error('Like publish error', e);
     }
