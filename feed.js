@@ -2,30 +2,6 @@
   const App = window.NostrApp || (window.NostrApp = {});
   App.deletedEventIds = App.deletedEventIds || new Set();
   App.profileCache = App.profileCache || new Map();
-  const connectionStatusEl = document.getElementById('connection-status');
-  let connectionStatusTimer = null;
-
-  function setConnectionStatus(message = '', hideAfterMs = 0) {
-    // חלק פיד (feed.js) – מציג את הודעת מצב החיבור ומחביא אותה לאחר פרק זמן מוגדר
-    if (!connectionStatusEl) {
-      return;
-    }
-
-    connectionStatusEl.textContent = message;
-    connectionStatusEl.style.opacity = message ? '1' : '0';
-
-    if (connectionStatusTimer) {
-      clearTimeout(connectionStatusTimer);
-      connectionStatusTimer = null;
-    }
-
-    if (hideAfterMs > 0 && message) {
-      connectionStatusTimer = window.setTimeout(() => {
-        connectionStatusEl.textContent = '';
-        connectionStatusEl.style.opacity = '0';
-      }, hideAfterMs);
-    }
-  }
   async function fetchProfile(pubkey) {
     if (!pubkey || pubkey.trim() === '') {
       return {
@@ -306,7 +282,7 @@
 
   async function loadFeed() {
     if (!App.pool) return;
-    setConnectionStatus('Loading feed...');
+    document.getElementById('connection-status').textContent = 'Loading feed...';
     App.deletedEventIds = new Set();
     const filters = [{ kinds: [1], '#t': [App.NETWORK_TAG], limit: 50 }];
     if (App.publicKey) {
@@ -324,11 +300,11 @@
         }
         events.push(event);
         console.log('Received event:', event);
-        setConnectionStatus(`Loading feed... Received ${events.length} posts`);
+        document.getElementById('connection-status').textContent = `Loading feed... Received ${events.length} posts`;
       },
       oneose: () => {
         displayPosts(events);
-        setConnectionStatus(`Connected! ${events.length} posts loaded.`, 4000);
+        document.getElementById('connection-status').textContent = `Connected! ${events.length} posts loaded.`;
       },
     });
 

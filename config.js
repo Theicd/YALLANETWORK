@@ -39,22 +39,7 @@
   }
 
   const App = window.NostrApp || {};
-  App.relayUrls = [
-    // חלק קונפיגורציה (config.js) – ריליי ברירת מחדל של Damus
-    'wss://relay.damus.io',
-    // חלק קונפיגורציה (config.js) – ריליי מרכזי של Snort
-    'wss://relay.snort.social',
-    // חלק קונפיגורציה (config.js) – ריליי Nos.lol לתמיכה נוספת
-    'wss://nos.lol',
-    // חלק קונפיגורציה (config.js) – ריליי קהילתי נרחב
-    'wss://nostr.wine',
-    // חלק קונפיגורציה (config.js) – ריליי Nostr Band עם אינדוקס רחב
-    'wss://relay.nostr.band',
-    // חלק קונפיגורציה (config.js) – ריליי Primal לשיפור זמינות
-    'wss://relay.primal.net',
-    // חלק קונפיגורציה (config.js) – ריליי Eden כדור גיבוי נוסף
-    'wss://eden.nostr.land',
-  ];
+  App.relayUrls = ['wss://relay.damus.io', 'wss://relay.snort.social', 'wss://nos.lol'];
   App.NETWORK_TAG = 'israel-network';
   App.MAX_INLINE_PICTURE_LENGTH = 8000;
   App.MAX_METADATA_CONTENT_LENGTH = 60000;
