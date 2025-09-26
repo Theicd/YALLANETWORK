@@ -1,0 +1,16 @@
+/* חלק ריאקציות (reactions.css) – עיצוב המעטפת של ספירת הלייקים */
+.feed-post__reactions {
+  margin-top: 8px;
+  padding: 6px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* חלק ריאקציות (reactions.css) – טקסט ברירת המחדל להצגת הספירה */
+.feed-post__reactions-count {
+  font-weight: 500;
+  color: var(--text);
+}
