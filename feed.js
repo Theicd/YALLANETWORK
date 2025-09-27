@@ -309,8 +309,19 @@
     }
     App.deletedEventIds = new Set();
     const filters = [{ kinds: [1], '#t': [App.NETWORK_TAG], limit: 50 }];
-    if (App.publicKey) {
-      filters.push({ kinds: [5], authors: [App.publicKey], limit: 200 });
+    const deletionAuthors = new Set();
+    if (typeof App.publicKey === 'string' && App.publicKey) {
+      deletionAuthors.add(App.publicKey.toLowerCase());
+    }
+    if (App.adminPublicKeys instanceof Set) {
+      App.adminPublicKeys.forEach((key) => {
+        if (typeof key === 'string' && key) {
+          deletionAuthors.add(key.toLowerCase());
+        }
+      });
+    }
+    if (deletionAuthors.size > 0) {
+      filters.push({ kinds: [5], authors: Array.from(deletionAuthors), limit: 200 });
     } else {
       filters.push({ kinds: [5], '#t': [App.NETWORK_TAG], limit: 200 });
     }
