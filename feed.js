@@ -282,7 +282,12 @@
 
   async function loadFeed() {
     if (!App.pool) return;
-    document.getElementById('connection-status').textContent = 'Loading feed...';
+    const statusEl = document.getElementById('connection-status');
+    if (statusEl) {
+      // חלק פיד (feed.js) – מציג למשתמש שהפיד נטען
+      statusEl.textContent = 'Loading feed...';
+      statusEl.style.opacity = '1';
+    }
     App.deletedEventIds = new Set();
     const filters = [{ kinds: [1], '#t': [App.NETWORK_TAG], limit: 50 }];
     if (App.publicKey) {
@@ -300,11 +305,20 @@
         }
         events.push(event);
         console.log('Received event:', event);
-        document.getElementById('connection-status').textContent = `Loading feed... Received ${events.length} posts`;
+        if (statusEl) {
+          statusEl.textContent = `Loading feed... Received ${events.length} posts`;
+        }
       },
       oneose: () => {
         displayPosts(events);
-        document.getElementById('connection-status').textContent = `Connected! ${events.length} posts loaded.`;
+        if (statusEl) {
+          // חלק פיד (feed.js) – לאחר השלמת הטעינה מציג הודעה קצרה ולאחר מכן מסתיר אותה
+          statusEl.textContent = `Connected! ${events.length} posts loaded.`;
+          setTimeout(() => {
+            statusEl.textContent = '';
+            statusEl.style.opacity = '0';
+          }, 2500);
+        }
       },
     });
 
