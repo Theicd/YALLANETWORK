@@ -6,7 +6,7 @@
   App.likesByEventId = App.likesByEventId || new Map(); // חלק פיד (feed.js) – סופר לייקים לכל פוסט לפי מזהה האירוע
   App.commentsByParent = App.commentsByParent || new Map(); // חלק פיד (feed.js) – מרכז את כל תגובות kind 1 לכל פוסט כדי שכל המשתמשים יראו אותן
   async function fetchProfile(pubkey) {
-    if (!pubkey || typeof pubkey !== 'string' || pubkey.trim() === '') {
+    if (!pubkey || pubkey.trim() === '') {
       return {
         name: 'משתמש אנונימי',
         bio: '',
@@ -15,13 +15,8 @@
       };
     }
 
-    const normalizedPubkey = pubkey.trim().toLowerCase();
-    const cacheKeys = normalizedPubkey === pubkey ? [normalizedPubkey] : [normalizedPubkey, pubkey.trim()];
-
-    for (const key of cacheKeys) {
-      if (App.profileCache.has(key)) {
-        return App.profileCache.get(key);
-      }
+    if (App.profileCache.has(pubkey)) {
+      return App.profileCache.get(pubkey);
     }
 
     const fallback = {
@@ -30,15 +25,14 @@
       picture: '',
       initials: App.getInitials(pubkey),
     };
-    cacheKeys.forEach((key) => App.profileCache.set(key, fallback));
+    App.profileCache.set(pubkey, fallback);
 
     if (!App.pool) {
       return fallback;
     }
 
     try {
-      const authors = Array.from(new Set(cacheKeys));
-      const metadataEvent = await App.pool.get(App.relayUrls, { kinds: [0], authors });
+      const metadataEvent = await App.pool.get(App.relayUrls, { kinds: [0], authors: [pubkey] });
       if (metadataEvent?.content) {
         const parsed = JSON.parse(metadataEvent.content);
         const name = parsed.name ? parsed.name.toString().trim() : fallback.name;
@@ -50,7 +44,7 @@
           picture,
           initials: App.getInitials(name || pubkey),
         };
-        cacheKeys.forEach((key) => App.profileCache.set(key, enriched));
+        App.profileCache.set(pubkey, enriched);
         return enriched;
       }
     } catch (err) {
@@ -137,7 +131,6 @@
     const likeSet = App.likesByEventId.get(eventId);
     const count = likeSet ? likeSet.size : 0;
     const counterEl = button.querySelector('.feed-post__like-count');
-    const totalEl = document.querySelector(`.feed-post__like-counter[data-like-counter="${eventId}"]`);
     if (counterEl) {
       if (count > 0) {
         counterEl.textContent = String(count);
@@ -145,15 +138,6 @@
       } else {
         counterEl.textContent = '';
         counterEl.style.display = 'none';
-      }
-    }
-    if (totalEl) {
-      if (count > 0) {
-        totalEl.textContent = String(count);
-        totalEl.style.display = '';
-      } else {
-        totalEl.textContent = '';
-        totalEl.style.display = 'none';
       }
     }
 
@@ -248,19 +232,11 @@
         <article class="feed-comment">
           <div class="feed-comment__avatar">${commenterAvatar}</div>
           <div class="feed-comment__body">
-            <div class="feed-comment__bubble">
-              <div class="feed-comment__line">
-                <span class="feed-comment__author">${commenterName}</span>
-                <span class="feed-comment__text">${safeContent}</span>
-              </div>
-              <footer class="feed-comment__footer">
-                ${timestamp ? `<time class="feed-comment__time">${timestamp}</time>` : ''}
-                <span class="feed-comment__dot">·</span>
-                <button type="button" class="feed-comment__action" data-like-comment="${comment.id}">לייק</button>
-                <span class="feed-comment__dot">·</span>
-                <button type="button" class="feed-comment__action" data-reply-to="${comment.id}">השב</button>
-              </footer>
-            </div>
+            <header class="feed-comment__header">
+              <span class="feed-comment__author">${commenterName}</span>
+              ${timestamp ? `<time class="feed-comment__time">${timestamp}</time>` : ''}
+            </header>
+            <div class="feed-comment__text">${safeContent}</div>
           </div>
         </article>
       `);
@@ -539,7 +515,7 @@
           <form class="feed-comments__form" data-comment-form="${event.id}">
             <div class="feed-comments__composer">
               <div class="feed-comments__avatar">${viewerAvatar}</div>
-              <textarea rows="1" placeholder="כתוב תגובה בתור ${App.escapeHtml(viewerName)}" required></textarea>
+              <textarea rows="2" placeholder="כתוב תגובה..." required></textarea>
             </div>
             <div class="feed-comments__actions">
               <button class="feed-comments__submit" type="submit">
@@ -568,20 +544,18 @@
     if (!toggle || !section) {
       return;
     }
-    toggle.setAttribute('aria-expanded', 'false');
     toggle.addEventListener('click', () => {
       const isHidden = section.hasAttribute('hidden');
       if (isHidden) {
         section.removeAttribute('hidden');
-        toggle.setAttribute('aria-expanded', 'true');
         updateCommentsForParent(parentId);
       } else {
         section.setAttribute('hidden', '');
-        toggle.setAttribute('aria-expanded', 'false');
       }
     });
     if (App.commentsByParent.get(parentId)?.size) {
       updateCommentsForParent(parentId);
+      section.removeAttribute('hidden');
     }
   }
 
