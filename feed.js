@@ -3,6 +3,7 @@
   App.deletedEventIds = App.deletedEventIds || new Set();
   App.profileCache = App.profileCache || new Map();
   App.eventAuthorById = App.eventAuthorById || new Map();
+  App.likesByEventId = App.likesByEventId || new Map();
   async function fetchProfile(pubkey) {
     if (!pubkey || pubkey.trim() === '') {
       return {
@@ -82,6 +83,69 @@
         removePostElement(value);
       }
     });
+  }
+
+  function registerLike(event) {
+    if (!event || event.kind !== 7 || !Array.isArray(event.tags)) {
+      return;
+    }
+
+    const liker = typeof event.pubkey === 'string' ? event.pubkey.toLowerCase() : null;
+    const isUnlike = typeof event.content === 'string' && event.content.trim() === '-';
+    const targetIds = new Set();
+
+    event.tags.forEach((tag) => {
+      if (!Array.isArray(tag)) return;
+      const [type, value] = tag;
+      if ((type === 'e' || type === 'a') && value) {
+        targetIds.add(value);
+      }
+    });
+
+    if (!targetIds.size) {
+      return;
+    }
+
+    targetIds.forEach((eventId) => {
+      if (!App.likesByEventId.has(eventId)) {
+        App.likesByEventId.set(eventId, new Set());
+      }
+      const likeSet = App.likesByEventId.get(eventId);
+      if (liker) {
+        if (isUnlike) {
+          likeSet.delete(liker);
+        } else {
+          likeSet.add(liker);
+        }
+      }
+      updateLikeIndicator(eventId);
+    });
+  }
+
+  function updateLikeIndicator(eventId) {
+    if (!eventId) return;
+    const button = document.querySelector(`button[data-like-button][data-event-id="${eventId}"]`);
+    if (!button) return;
+
+    const likeSet = App.likesByEventId.get(eventId);
+    const count = likeSet ? likeSet.size : 0;
+    const counterEl = button.querySelector('.feed-post__like-count');
+    if (counterEl) {
+      if (count > 0) {
+        counterEl.textContent = String(count);
+        counterEl.style.display = '';
+      } else {
+        counterEl.textContent = '';
+        counterEl.style.display = 'none';
+      }
+    }
+
+    const currentUser = typeof App.publicKey === 'string' ? App.publicKey.toLowerCase() : '';
+    if (currentUser && likeSet && likeSet.has(currentUser)) {
+      button.classList.add('feed-post__action--liked');
+    } else {
+      button.classList.remove('feed-post__action--liked');
+    }
   }
 
   function renderDemoPosts(feed) {
@@ -257,6 +321,7 @@
       }
       const metaHtml = metaParts.join(' • ');
 
+      const likeCount = App.likesByEventId.get(event.id)?.size || 0;
       const ownPost = event.pubkey === App.publicKey;
       const canDelete = ownPost || isAdminUser;
       const deleteButtonHtml = canDelete
@@ -283,9 +348,10 @@
         ${safeContent ? `<div class="feed-post__content">${safeContent}</div>` : ''}
         ${mediaHtml ? `<div class="feed-post__media">${mediaHtml}</div>` : ''}
         <div class="feed-post__actions">
-          <button class="feed-post__action" type="button" onclick="NostrApp.likePost('${event.id}')">
+          <button class="feed-post__action" type="button" data-like-button data-event-id="${event.id}" onclick="NostrApp.likePost('${event.id}')">
             <i class="fa-regular fa-thumbs-up"></i>
             <span>אהבתי</span>
+            <span class="feed-post__like-count" ${likeCount ? '' : 'style="display:none;"'}>${likeCount || ''}</span>
           </button>
           <button class="feed-post__action" type="button" onclick="NostrApp.sharePost('${event.id}')">
             <i class="fa-solid fa-share"></i>
@@ -296,6 +362,7 @@
       `;
 
       feed.appendChild(article);
+      updateLikeIndicator(event.id);
     }
   }
 
@@ -308,6 +375,7 @@
       statusEl.style.opacity = '1';
     }
     App.deletedEventIds = new Set();
+    App.likesByEventId = new Map();
     const filters = [{ kinds: [1], '#t': [App.NETWORK_TAG], limit: 50 }];
     const deletionAuthors = new Set();
     if (typeof App.publicKey === 'string' && App.publicKey) {
@@ -325,12 +393,17 @@
     } else {
       filters.push({ kinds: [5], '#t': [App.NETWORK_TAG], limit: 200 });
     }
+    filters.push({ kinds: [7], '#t': [App.NETWORK_TAG], limit: 500 });
     const events = [];
 
     const sub = App.pool.subscribeMany(App.relayUrls, filters, {
       onevent: (event) => {
         if (event.kind === 5) {
           registerDeletion(event);
+          return;
+        }
+        if (event.kind === 7) {
+          registerLike(event);
           return;
         }
         events.push(event);
@@ -408,6 +481,7 @@
     try {
       await App.pool.publish(App.relayUrls, event);
       console.log('Liked event');
+      registerLike(event);
     } catch (e) {
       console.error('Like publish error', e);
     }
@@ -479,6 +553,8 @@
     parseYouTube,
     createMediaHtml,
     registerDeletion,
+    registerLike,
+    updateLikeIndicator,
     removePostElement,
   });
 })(window);
