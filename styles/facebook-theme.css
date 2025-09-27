@@ -397,6 +397,241 @@ button {
   color: var(--text);
 }
 
+.feed-post__action--liked {
+  color: var(--primary);
+}
+
+.feed-post__like-count,
+.feed-post__like-counter,
+.feed-post__comment-count {
+  font-weight: 600;
+}
+
+.feed-post__stats {
+  margin-top: -4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.feed-post__likes {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.feed-post__likes i {
+  color: var(--primary);
+  font-size: 0.75rem;
+}
+
+.feed-post__comments-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-radius: 20px;
+  padding: 4px 10px;
+  transition: background-color 0.2s ease;
+}
+
+.feed-post__comments-toggle:hover,
+.feed-post__comments-toggle[aria-expanded='true'] {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.feed-comments {
+  padding: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.feed-comments__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.feed-comments__empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.feed-comment {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.feed-comment__avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--card-alt);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  overflow: hidden;
+  font-size: 0.8rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.feed-comment__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.feed-comment__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+
+.feed-comment__bubble {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.feed-comment__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.feed-comment__author {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.feed-comment__text {
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.feed-comment__footer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.feed-comment__time {
+  font-size: 0.75rem;
+}
+
+.feed-comment__action {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.feed-comment__action:hover {
+  color: var(--text);
+}
+
+.feed-comment__dot {
+  font-weight: 700;
+}
+
+.feed-comments__form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.feed-comments__composer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card-alt);
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+
+.feed-comments__avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.feed-comments__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.feed-comments__composer textarea {
+  flex: 1;
+  resize: none;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.feed-comments__composer textarea::placeholder {
+  color: var(--muted);
+}
+
+.feed-comments__composer textarea:focus {
+  outline: none;
+}
+
+.feed-comments__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.feed-comments__submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: var(--primary);
+  color: white;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.feed-comments__submit:disabled {
+  background: var(--border);
+  cursor: not-allowed;
+}
+
 .fab {
   position: fixed;
   bottom: 24px;

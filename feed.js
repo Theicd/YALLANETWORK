@@ -1,9 +1,10 @@
 ;(function initFeed(window) {
   const App = window.NostrApp || (window.NostrApp = {});
-  App.deletedEventIds = App.deletedEventIds || new Set();
-  App.profileCache = App.profileCache || new Map();
-  App.eventAuthorById = App.eventAuthorById || new Map();
-  App.likesByEventId = App.likesByEventId || new Map();
+  App.deletedEventIds = App.deletedEventIds || new Set(); // חלק פיד (feed.js) – שומר מזהים של פוסטים שנמחקו כדי שלא להציגם
+  App.profileCache = App.profileCache || new Map(); // חלק פיד (feed.js) – מאחסן מטא-דאטה של פרופילים כדי לחסוך שאילתות
+  App.eventAuthorById = App.eventAuthorById || new Map(); // חלק פיד (feed.js) – מאפשר לשייך אירועים למחבר שלהם למטרות הרשאות
+  App.likesByEventId = App.likesByEventId || new Map(); // חלק פיד (feed.js) – סופר לייקים לכל פוסט לפי מזהה האירוע
+  App.commentsByParent = App.commentsByParent || new Map(); // חלק פיד (feed.js) – מרכז את כל תגובות kind 1 לכל פוסט כדי שכל המשתמשים יראו אותן
   async function fetchProfile(pubkey) {
     if (!pubkey || pubkey.trim() === '') {
       return {
@@ -130,6 +131,7 @@
     const likeSet = App.likesByEventId.get(eventId);
     const count = likeSet ? likeSet.size : 0;
     const counterEl = button.querySelector('.feed-post__like-count');
+    const totalEl = document.querySelector(`.feed-post__like-counter[data-like-counter="${eventId}"]`);
     if (counterEl) {
       if (count > 0) {
         counterEl.textContent = String(count);
@@ -139,6 +141,15 @@
         counterEl.style.display = 'none';
       }
     }
+    if (totalEl) {
+      if (count > 0) {
+        totalEl.textContent = String(count);
+        totalEl.style.display = '';
+      } else {
+        totalEl.textContent = '';
+        totalEl.style.display = 'none';
+      }
+    }
 
     const currentUser = typeof App.publicKey === 'string' ? App.publicKey.toLowerCase() : '';
     if (currentUser && likeSet && likeSet.has(currentUser)) {
@@ -146,6 +157,141 @@
     } else {
       button.classList.remove('feed-post__action--liked');
     }
+  }
+
+  function extractParentId(event) {
+    // חלק פיד (feed.js) – שולף מזהה פוסט הורה מתגיות אירוע kind 1 כדי לזהות תגובות
+    if (!event || !Array.isArray(event.tags)) {
+      return null;
+    }
+    let fallback = null;
+    for (const tag of event.tags) {
+      if (!Array.isArray(tag)) continue;
+      if (tag[0] === 'e' && typeof tag[1] === 'string') {
+        const marker = tag[3];
+        if (marker === 'root') {
+          return tag[1];
+        }
+        if (!fallback) {
+          fallback = tag[1];
+        }
+      }
+    }
+    return fallback;
+  }
+
+  function registerComment(event, parentId) {
+    // חלק פיד (feed.js) – מוסיף תגובה למאגר המקומי ומעדכן את ה-UI של הפוסט
+    if (!event || !parentId) {
+      return;
+    }
+    if (!App.commentsByParent.has(parentId)) {
+      App.commentsByParent.set(parentId, new Map());
+    }
+    const commentMap = App.commentsByParent.get(parentId);
+    if (!commentMap.has(event.id)) {
+      commentMap.set(event.id, event);
+    } else {
+      commentMap.set(event.id, event);
+    }
+    if (event?.id && event?.pubkey) {
+      App.eventAuthorById.set(event.id, event.pubkey.toLowerCase());
+    }
+    updateCommentsForParent(parentId);
+  }
+
+  async function updateCommentsForParent(parentId) {
+    // חלק פיד (feed.js) – מרנדר מחדש את רשימת התגובות עבור פוסט מסוים
+    if (!parentId) return;
+    const listEl = document.querySelector(`.feed-comments__list[data-comments-list="${parentId}"]`);
+    const counterEl = document.querySelector(`.feed-post__comment-count[data-comment-count="${parentId}"]`);
+    if (!listEl) {
+      return;
+    }
+
+    const commentMap = App.commentsByParent.get(parentId);
+    const comments = commentMap ? Array.from(commentMap.values()) : [];
+    comments.sort((a, b) => (a.created_at || 0) - (b.created_at || 0));
+
+    if (counterEl) {
+      if (comments.length > 0) {
+        counterEl.textContent = String(comments.length);
+        counterEl.style.display = '';
+      } else {
+        counterEl.textContent = '';
+        counterEl.style.display = 'none';
+      }
+    }
+
+    if (!comments.length) {
+      listEl.innerHTML = '<p class="feed-comments__empty">אין תגובות עדיין. היה הראשון להגיב!</p>';
+      return;
+    }
+
+    const fragments = [];
+    for (const comment of comments) {
+      // eslint-disable-next-line no-await-in-loop
+      const commenterProfile = await fetchProfile(comment.pubkey);
+      const commenterName = App.escapeHtml(commenterProfile.name || 'משתמש');
+      const commenterAvatar = commenterProfile.picture
+        ? `<img src="${commenterProfile.picture}" alt="${commenterName}">`
+        : `<span>${commenterProfile.initials}</span>`;
+      const safeContent = App.escapeHtml(comment.content || '').replace(/\n/g, '<br>');
+      const timestamp = comment.created_at ? formatTimestamp(comment.created_at) : '';
+      fragments.push(`
+        <article class="feed-comment">
+          <div class="feed-comment__avatar">${commenterAvatar}</div>
+          <div class="feed-comment__body">
+            <div class="feed-comment__bubble">
+              <div class="feed-comment__line">
+                <span class="feed-comment__author">${commenterName}</span>
+                <span class="feed-comment__text">${safeContent}</span>
+              </div>
+              <footer class="feed-comment__footer">
+                ${timestamp ? `<time class="feed-comment__time">${timestamp}</time>` : ''}
+                <span class="feed-comment__dot">·</span>
+                <button type="button" class="feed-comment__action" data-like-comment="${comment.id}">לייק</button>
+                <span class="feed-comment__dot">·</span>
+                <button type="button" class="feed-comment__action" data-reply-to="${comment.id}">השב</button>
+              </footer>
+            </div>
+          </div>
+        </article>
+      `);
+    }
+    listEl.innerHTML = fragments.join('');
+  }
+
+  function wireCommentForm(articleEl, parentId) {
+    // חלק פיד (feed.js) – מחבר את טופס התגובות לפונקציית הפרסום
+    if (!articleEl || !parentId) {
+      return;
+    }
+    const form = articleEl.querySelector(`form.feed-comments__form[data-comment-form="${parentId}"]`);
+    if (!form) {
+      return;
+    }
+    const textarea = form.querySelector('textarea');
+    form.addEventListener('submit', async (evt) => {
+      evt.preventDefault();
+      if (!textarea) {
+        return;
+      }
+      const content = textarea.value.trim();
+      if (!content) {
+        return;
+      }
+      textarea.disabled = true;
+      try {
+        await postComment(parentId, content);
+        textarea.value = '';
+      } catch (err) {
+        console.error('Comment publish error', err);
+      } finally {
+        textarea.disabled = false;
+        textarea.focus();
+      }
+    });
   }
 
   function renderDemoPosts(feed) {
@@ -332,6 +478,16 @@
           </button>
         `
         : '';
+      if (!App.commentsByParent.has(event.id)) {
+        App.commentsByParent.set(event.id, new Map());
+      }
+      const commentCount = App.commentsByParent.get(event.id)?.size || 0;
+      const viewerProfile = App.profile || {};
+      const viewerName = viewerProfile.name || 'אני';
+      const viewerInitials = typeof App.getInitials === 'function' ? App.getInitials(viewerName) : viewerName.slice(0, 2).toUpperCase();
+      const viewerAvatar = viewerProfile.picture
+        ? `<img src="${viewerProfile.picture}" alt="${App.escapeHtml(viewerName)}">`
+        : `<span>${App.escapeHtml(viewerInitials)}</span>`;
 
       const avatar = profileData.picture
         ? `<div class="feed-post__avatar"><img src="${profileData.picture}" alt="${safeName}"></div>`
@@ -347,6 +503,19 @@
         </header>
         ${safeContent ? `<div class="feed-post__content">${safeContent}</div>` : ''}
         ${mediaHtml ? `<div class="feed-post__media">${mediaHtml}</div>` : ''}
+        <footer class="feed-post__stats">
+          <span class="feed-post__likes" data-like-total="${event.id}">
+            <i class="fa-solid fa-thumbs-up"></i>
+            <span class="feed-post__like-counter" data-like-counter="${event.id}">${likeCount || ''}</span>
+          </span>
+          <button class="feed-post__comments-toggle" type="button" data-comments-toggle="${event.id}">
+            <i class="fa-regular fa-message"></i>
+            <span>תגובות</span>
+            <span class="feed-post__comment-count" data-comment-count="${event.id}" ${commentCount ? '' : 'style="display:none;"'}>${
+              commentCount || ''
+            }</span>
+          </button>
+        </footer>
         <div class="feed-post__actions">
           <button class="feed-post__action" type="button" data-like-button data-event-id="${event.id}" onclick="NostrApp.likePost('${event.id}')">
             <i class="fa-regular fa-thumbs-up"></i>
@@ -359,11 +528,78 @@
           </button>
           ${deleteButtonHtml}
         </div>
+        <section class="feed-comments" data-comments-section="${event.id}" hidden>
+          <div class="feed-comments__list" data-comments-list="${event.id}"></div>
+          <form class="feed-comments__form" data-comment-form="${event.id}">
+            <div class="feed-comments__composer">
+              <div class="feed-comments__avatar">${viewerAvatar}</div>
+              <textarea rows="1" placeholder="כתוב תגובה בתור ${App.escapeHtml(viewerName)}" required></textarea>
+            </div>
+            <div class="feed-comments__actions">
+              <button class="feed-comments__submit" type="submit">
+                <i class="fa-solid fa-paper-plane"></i>
+                <span>שלח</span>
+              </button>
+            </div>
+          </form>
+        </section>
       `;
 
       feed.appendChild(article);
       updateLikeIndicator(event.id);
+      wireCommentForm(article, event.id);
+      hydrateCommentsSection(article, event.id);
     }
+  }
+
+  async function hydrateCommentsSection(articleEl, parentId) {
+    // חלק פיד (feed.js) – מציג תגובות קיימות ומחבר כפתור הצגה/הסתרה
+    if (!articleEl || !parentId) {
+      return;
+    }
+    const toggle = articleEl.querySelector(`button[data-comments-toggle="${parentId}"]`);
+    const section = articleEl.querySelector(`section[data-comments-section="${parentId}"]`);
+    if (!toggle || !section) {
+      return;
+    }
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.addEventListener('click', () => {
+      const isHidden = section.hasAttribute('hidden');
+      if (isHidden) {
+        section.removeAttribute('hidden');
+        toggle.setAttribute('aria-expanded', 'true');
+        updateCommentsForParent(parentId);
+      } else {
+        section.setAttribute('hidden', '');
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+    });
+    if (App.commentsByParent.get(parentId)?.size) {
+      updateCommentsForParent(parentId);
+    }
+  }
+
+  async function postComment(parentId, content) {
+    // חלק פיד (feed.js) – מפרסם תגובת kind 1 עם תגיות root/commit כדי שכל הרשת תראה אותה
+    if (!parentId || !content || !App.publicKey || !App.privateKey || !App.pool) {
+      throw new Error('Missing required context for posting comment');
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const draft = {
+      kind: 1,
+      pubkey: App.publicKey,
+      created_at: now,
+      tags: [
+        ['e', parentId, App.relayUrls?.[0] || '', 'root'],
+        ['e', parentId, App.relayUrls?.[0] || '', 'reply'],
+        ['t', App.NETWORK_TAG],
+      ],
+      content,
+    };
+    const event = App.finalizeEvent(draft, App.privateKey);
+    await App.pool.publish(App.relayUrls, event);
+    registerComment(event, parentId);
   }
 
   async function loadFeed() {
@@ -376,6 +612,7 @@
     }
     App.deletedEventIds = new Set();
     App.likesByEventId = new Map();
+    App.commentsByParent = new Map();
     const filters = [{ kinds: [1], '#t': [App.NETWORK_TAG], limit: 50 }];
     const deletionAuthors = new Set();
     if (typeof App.publicKey === 'string' && App.publicKey) {
@@ -398,6 +635,15 @@
 
     const sub = App.pool.subscribeMany(App.relayUrls, filters, {
       onevent: (event) => {
+        if (event.kind === 1) {
+          const parentId = extractParentId(event);
+          if (parentId) {
+            registerComment(event, parentId);
+          } else {
+            events.push(event);
+          }
+          return;
+        }
         if (event.kind === 5) {
           registerDeletion(event);
           return;
