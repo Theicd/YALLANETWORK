@@ -6,7 +6,7 @@
   App.likesByEventId = App.likesByEventId || new Map(); // חלק פיד (feed.js) – סופר לייקים לכל פוסט לפי מזהה האירוע
   App.commentsByParent = App.commentsByParent || new Map(); // חלק פיד (feed.js) – מרכז את כל תגובות kind 1 לכל פוסט כדי שכל המשתמשים יראו אותן
   async function fetchProfile(pubkey) {
-    if (!pubkey || pubkey.trim() === '') {
+    if (!pubkey || typeof pubkey !== 'string' || pubkey.trim() === '') {
       return {
         name: 'משתמש אנונימי',
         bio: '',
@@ -15,8 +15,13 @@
       };
     }
 
-    if (App.profileCache.has(pubkey)) {
-      return App.profileCache.get(pubkey);
+    const normalizedPubkey = pubkey.trim().toLowerCase();
+    const cacheKeys = normalizedPubkey === pubkey ? [normalizedPubkey] : [normalizedPubkey, pubkey.trim()];
+
+    for (const key of cacheKeys) {
+      if (App.profileCache.has(key)) {
+        return App.profileCache.get(key);
+      }
     }
 
     const fallback = {
@@ -25,14 +30,15 @@
       picture: '',
       initials: App.getInitials(pubkey),
     };
-    App.profileCache.set(pubkey, fallback);
+    cacheKeys.forEach((key) => App.profileCache.set(key, fallback));
 
     if (!App.pool) {
       return fallback;
     }
 
     try {
-      const metadataEvent = await App.pool.get(App.relayUrls, { kinds: [0], authors: [pubkey] });
+      const authors = Array.from(new Set(cacheKeys));
+      const metadataEvent = await App.pool.get(App.relayUrls, { kinds: [0], authors });
       if (metadataEvent?.content) {
         const parsed = JSON.parse(metadataEvent.content);
         const name = parsed.name ? parsed.name.toString().trim() : fallback.name;
@@ -44,7 +50,7 @@
           picture,
           initials: App.getInitials(name || pubkey),
         };
-        App.profileCache.set(pubkey, enriched);
+        cacheKeys.forEach((key) => App.profileCache.set(key, enriched));
         return enriched;
       }
     } catch (err) {

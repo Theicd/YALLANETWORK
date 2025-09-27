@@ -23,23 +23,30 @@
     console.warn('getInitials missing on App. Defaulting to first letters only.');
     App.getInitials = (value = '') => value.trim().slice(0, 2).toUpperCase() || 'AN';
   }
-
   App.profile.avatarInitials = App.getInitials(App.profile.name || '');
 
   if (!App.profileCache) {
     App.profileCache = new Map();
   }
-  App.profileCache.set(App.publicKey || 'self', {
-    name: App.profile.name,
-    bio: App.profile.bio,
-    picture: App.profile.picture,
-    initials: App.profile.avatarInitials,
-  });
+  if (typeof App.publicKey === 'string' && App.publicKey) {
+    App.profileCache.set(App.publicKey.toLowerCase(), {
+      name: App.profile.name,
+      bio: App.profile.bio,
+      picture: App.profile.picture,
+      initials: App.profile.avatarInitials,
+    });
+  } else {
+    App.profileCache.set('self', {
+      name: App.profile.name,
+      bio: App.profile.bio,
+      picture: App.profile.picture,
+      initials: App.profile.avatarInitials,
+    });
+  }
 
   App.pool = new SimplePool();
   document.getElementById('connection-status').textContent = 'Pool initialized. Connecting to relays...';
   console.log('Pool initialized');
-
   if (App.metadataPublishQueued && typeof App.publishProfileMetadata === 'function') {
     App.publishProfileMetadata();
   }

@@ -93,8 +93,8 @@
       console.warn('Profile metadata: failed caching profile locally', err);
     }
 
-    if (App.profileCache instanceof Map) {
-      App.profileCache.set(App.publicKey, {
+    if (App.profileCache instanceof Map && typeof App.publicKey === 'string' && App.publicKey) {
+      App.profileCache.set(App.publicKey.toLowerCase(), {
         name: App.profile.name,
         bio: App.profile.bio,
         picture: App.profile.picture,
@@ -181,18 +181,19 @@
       App.profile.avatarInitials = App.getInitials(name);
 
       try {
-        window.localStorage.setItem('nostr_profile', JSON.stringify(App.profile));
       } catch (e) {
         console.error('Failed to save profile to local storage', e);
       }
       renderProfile();
       closeProfileSettings();
-      App.profileCache.set(App.publicKey, {
-        name: App.profile.name,
-        bio: App.profile.bio,
-        picture: App.profile.picture,
-        initials: App.profile.avatarInitials,
-      });
+      if (App.profileCache instanceof Map && typeof App.publicKey === 'string' && App.publicKey) {
+        App.profileCache.set(App.publicKey.toLowerCase(), {
+          name: App.profile.name,
+          bio: App.profile.bio,
+          picture: App.profile.picture,
+          initials: App.profile.avatarInitials,
+        });
+      }
       publishProfileMetadata();
     };
 
