@@ -2,6 +2,7 @@
   const App = window.NostrApp || (window.NostrApp = {});
   App.deletedEventIds = App.deletedEventIds || new Set();
   App.profileCache = App.profileCache || new Map();
+  App.eventAuthorById = App.eventAuthorById || new Map();
   async function fetchProfile(pubkey) {
     if (!pubkey || pubkey.trim() === '') {
       return {
@@ -63,10 +64,20 @@
     if (!event || !Array.isArray(event.tags)) {
       return;
     }
+    const adminKeys = App.adminPublicKeys || new Set();
+    const eventPubkey = typeof event.pubkey === 'string' ? event.pubkey.toLowerCase() : '';
+    const isAdmin = eventPubkey && adminKeys.has(eventPubkey);
     event.tags.forEach((tag) => {
       if (!Array.isArray(tag)) return;
       const [type, value] = tag;
       if ((type === 'e' || type === 'a') && value) {
+        const author = App.eventAuthorById?.get(value)?.toLowerCase?.();
+        if (!isAdmin) {
+          // חלק פיד (feed.js) – מאפשר מחיקה רק למפרסם המקורי או למנהל מורשה
+          if (!author || author !== eventPubkey) {
+            return;
+          }
+        }
         App.deletedEventIds.add(value);
         removePostElement(value);
       }
@@ -206,14 +217,21 @@
       return;
     }
 
+    const isAdminUser =
+      App.adminPublicKeys instanceof Set && typeof App.publicKey === 'string'
+        ? App.adminPublicKeys.has(App.publicKey.toLowerCase())
+        : false;
+
     for (const event of visibleEvents) {
       const profileData = await fetchProfile(event.pubkey);
-      const safeName = App.escapeHtml(profileData.name);
+      if (event?.id && event?.pubkey) {
+        App.eventAuthorById.set(event.id, event.pubkey.toLowerCase());
+      }
+      const safeName = App.escapeHtml(profileData.name || '');
       const safeBio = profileData.bio ? App.escapeHtml(profileData.bio) : '';
       const article = document.createElement('article');
       article.className = 'feed-post';
       article.dataset.postId = event.id;
-
       const lines = event.content.split('\n');
       const mediaLinks = [];
       const textLines = [];
@@ -240,7 +258,8 @@
       const metaHtml = metaParts.join(' • ');
 
       const ownPost = event.pubkey === App.publicKey;
-      const deleteButtonHtml = ownPost
+      const canDelete = ownPost || isAdminUser;
+      const deleteButtonHtml = canDelete
         ? `
           <button class="feed-post__action feed-post__action--delete" type="button" onclick="NostrApp.deletePost('${event.id}')">
             <i class="fa-solid fa-trash"></i>

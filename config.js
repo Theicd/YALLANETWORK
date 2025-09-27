@@ -61,5 +61,32 @@
   App.ENCRYPTED_CHANNEL_KIND = 4;
   App.COMMUNITY_CONTEXT = 'yalacommunity';
 
+  // חלק קונפיגורציה (config.js) – מגדיר מפתחות מנהלים שיכולים למחוק פוסטים בכל הרשת מתוך הלקוח
+  const adminSourceKeys = ['8c60929899e0009f199b3865a7a5e7ba483fec60ff3c926169d0a4588ada256a'];
+  App.adminPublicKeys = App.adminPublicKeys || new Set();
+  adminSourceKeys.forEach((rawKey) => {
+    if (typeof rawKey !== 'string') {
+      return;
+    }
+    const trimmed = rawKey.trim().toLowerCase();
+    if (!trimmed) {
+      return;
+    }
+
+    let candidate = trimmed;
+    // חלק קונפיגורציה (config.js) – אם התקבל מפתח פרטי, מפיקים ממנו את המפתח הציבורי לצורך הרשאות
+    if (trimmed.length === 64 && typeof App.getPublicKey === 'function') {
+      try {
+        candidate = App.getPublicKey(trimmed) || trimmed;
+      } catch (err) {
+        console.warn('Admin key derivation failed', err);
+      }
+    }
+
+    if (typeof candidate === 'string' && candidate.length === 64) {
+      App.adminPublicKeys.add(candidate.toLowerCase());
+    }
+  });
+
   window.NostrApp = App;
 })(window);
