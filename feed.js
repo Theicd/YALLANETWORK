@@ -86,6 +86,30 @@
     });
   }
 
+  function wireShowMore(articleEl, postId) {
+    // חלק פיד (feed.js) – מוסיף קיפול טקסט לפוסטים ארוכים עם כפתור הצגה/הסתרה
+    if (!articleEl || !postId) {
+      return;
+    }
+    const button = articleEl.querySelector(`button[data-show-more="${postId}"]`);
+    const contentEl = articleEl.querySelector(`[data-post-content="${postId}"]`);
+    if (!button || !contentEl) {
+      return;
+    }
+    button.addEventListener('click', () => {
+      const expanded = contentEl.classList.toggle('feed-post__content--expanded');
+      if (expanded) {
+        contentEl.classList.remove('feed-post__content--collapsed');
+        button.textContent = 'הצג פחות';
+        button.setAttribute('aria-expanded', 'true');
+      } else {
+        contentEl.classList.add('feed-post__content--collapsed');
+        button.textContent = 'הצג עוד';
+        button.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+
   function registerLike(event) {
     if (!event || event.kind !== 7 || !Array.isArray(event.tags)) {
       return;
@@ -438,7 +462,19 @@
         }
       });
 
-      const safeContent = App.escapeHtml(textLines.join('\n')).replace(/\n/g, '<br>');
+      const rawTextContent = textLines.join('\n');
+      const safeContent = App.escapeHtml(rawTextContent).replace(/\n/g, '<br>');
+      const isLongPost = textLines.length > 6 || rawTextContent.length > 420;
+      const contentClass = isLongPost
+        ? 'feed-post__content feed-post__content--collapsed'
+        : 'feed-post__content';
+      const showMoreHtml = isLongPost
+        ? `
+          <button class="feed-post__show-more" type="button" data-show-more="${event.id}" aria-expanded="false">
+            הצג עוד
+          </button>
+        `
+        : '';
       const mediaHtml = createMediaHtml(mediaLinks);
       const metaParts = [];
       if (safeBio) {
@@ -483,7 +519,8 @@
             ${metaHtml ? `<span class="feed-post__meta">${metaHtml}</span>` : ''}
           </div>
         </header>
-        ${safeContent ? `<div class="feed-post__content">${safeContent}</div>` : ''}
+        ${safeContent ? `<div class="${contentClass}" data-post-content="${event.id}">${safeContent}</div>` : ''}
+        ${showMoreHtml}
         ${mediaHtml ? `<div class="feed-post__media">${mediaHtml}</div>` : ''}
         <footer class="feed-post__stats">
           <span class="feed-post__likes" data-like-total="${event.id}">
@@ -531,6 +568,7 @@
       updateLikeIndicator(event.id);
       wireCommentForm(article, event.id);
       hydrateCommentsSection(article, event.id);
+      wireShowMore(article, event.id);
     }
   }
 
