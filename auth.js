@@ -1,8 +1,12 @@
 (function initAuth(window) {
   const App = window.NostrApp || (window.NostrApp = {});
 
-  const tabs = Array.from(document.querySelectorAll('.auth-tab'));
-  const panels = Array.from(document.querySelectorAll('.auth-panel'));
+  // הפניות לאלמנטים החדשים
+  const importCard = document.querySelector('.auth-card--import');
+  const createCard = document.getElementById('authCreatePanel');
+  const goCreateButton = document.getElementById('authGoCreateButton');
+  const backToImportButton = document.getElementById('authBackToImport');
+  const shareWhatsappButton = document.getElementById('authShareWhatsappButton');
   const generateButton = document.getElementById('authGenerateButton');
   const copyCreateButton = document.getElementById('authCopyCreateButton');
   const downloadCreateButton = document.getElementById('authDownloadCreateButton');
@@ -16,17 +20,13 @@
 
   let generatedPrivateKey = '';
 
-  function switchTab(target) {
-    const tabName = target.dataset.tab;
-    tabs.forEach((tab) => {
-      const isActive = tab === target;
-      tab.classList.toggle('is-active', isActive);
-      tab.setAttribute('aria-selected', String(isActive));
-    });
-    panels.forEach((panel) => {
-      const isActive = panel.id === `auth${tabName.charAt(0).toUpperCase() + tabName.slice(1)}Panel`;
-      panel.classList.toggle('is-active', isActive);
-    });
+  function showPanel(panel) {
+    if (!importCard || !createCard) {
+      return;
+    }
+    const showCreate = panel === 'create';
+    importCard.hidden = showCreate;
+    createCard.hidden = !showCreate;
   }
 
   function setCreateStatus(message = '', tone = 'info') {
@@ -58,6 +58,9 @@
       createTextarea.value = encoded;
       copyCreateButton.disabled = false;
       downloadCreateButton.disabled = false;
+      if (shareWhatsappButton) {
+        shareWhatsappButton.disabled = false;
+      }
       setCreateStatus('מפתח חדש נוצר. שמרו אותו היטב.');
     } catch (err) {
       console.error('Generate key failed', err);
@@ -105,6 +108,21 @@
     window.location.replace('index.html');
   }
 
+  function shareWhatsapp() {
+    if (!shareWhatsappButton) {
+      return;
+    }
+    const value = createTextarea.value.trim();
+    if (!value) {
+      setCreateStatus('אין מפתח לשלוח.', 'error');
+      return;
+    }
+    const message = encodeURIComponent(`המפתח הפרטי שלי ליאלה תקשורת:\n${value}`);
+    const url = `https://wa.me/?text=${message}`;
+    window.open(url, '_blank', 'noopener');
+    setCreateStatus('פתחתי עבורך וואטסאפ לשיתוף המפתח.');
+  }
+
   function decodeImportValue() {
     const value = importTextarea.value.trim();
     if (!value) return null;
@@ -124,10 +142,8 @@
       return;
     }
     try {
-      // חלק אימות משתמשים (auth.js) – שומר את המפתח החדש בלוקאל סטור ומעדכן את מצב היישום
       window.localStorage.setItem('nostr_private_key', privateKey);
       App.privateKey = privateKey;
-      // חלק אימות משתמשים (auth.js) – מוודא שהמפתחות נטענים מחדש אחרי העדכון מהייבוא
       if (typeof App.ensureKeys === 'function') {
         App.ensureKeys();
       }
@@ -139,9 +155,22 @@
     }
   }
 
-  tabs.forEach((tab) => {
-    tab.addEventListener('click', () => switchTab(tab));
-  });
+  // האזנות לאירועים
+  if (goCreateButton) {
+    goCreateButton.addEventListener('click', () => {
+      showPanel('create');
+      setCreateStatus('');
+      setImportStatus('');
+    });
+  }
+
+  if (backToImportButton) {
+    backToImportButton.addEventListener('click', () => {
+      showPanel('import');
+      setCreateStatus('');
+      setImportStatus('');
+    });
+  }
 
   if (generateButton) {
     generateButton.addEventListener('click', generateKey);
@@ -153,6 +182,10 @@
 
   if (downloadCreateButton) {
     downloadCreateButton.addEventListener('click', downloadCreateKey);
+  }
+
+  if (shareWhatsappButton) {
+    shareWhatsappButton.addEventListener('click', shareWhatsapp);
   }
 
   if (createConfirm) {
@@ -175,5 +208,6 @@
     authDownloadCreateKey: downloadCreateKey,
     authHandleContinue: handleContinue,
     authHandleImport: handleImport,
+    authShareWhatsapp: shareWhatsapp,
   });
 })(window);

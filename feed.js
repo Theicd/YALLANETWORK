@@ -5,6 +5,15 @@
   App.eventAuthorById = App.eventAuthorById || new Map(); // חלק פיד (feed.js) – מאפשר לשייך אירועים למחבר שלהם למטרות הרשאות
   App.likesByEventId = App.likesByEventId || new Map(); // חלק פיד (feed.js) – סופר לייקים לכל פוסט לפי מזהה האירוע
   App.commentsByParent = App.commentsByParent || new Map(); // חלק פיד (feed.js) – מרכז את כל תגובות kind 1 לכל פוסט כדי שכל המשתמשים יראו אותן
+  App.notifications = Array.isArray(App.notifications) ? App.notifications : []; // חלק התרעות (feed.js) – מאחסן את רשימת ההתרעות לפי סדר יורד
+  App.notificationsById = App.notificationsById instanceof Map ? App.notificationsById : new Map(); // חלק התרעות (feed.js) – מאפשר למנוע כפילויות התרעה לפי מזהה האירוע
+  App.unreadNotificationCount = typeof App.unreadNotificationCount === 'number' ? App.unreadNotificationCount : 0; // חלק התרעות (feed.js) – סופר כמה התרעות לא נקראו להדלקת הכפתור
+  if (typeof App.notificationsRestored !== 'boolean') {
+    App.notificationsRestored = false; // חלק התרעות (feed.js) – מבטיח שנשחזר התרעות פעם אחת לאחר התחברות
+  }
+  App.postsById = App.postsById instanceof Map ? App.postsById : new Map(); // חלק התרעות (feed.js) – שומר את אירועי הפיד לפי מזהה להצלבת התרעות
+  App.pendingNotificationQueue = Array.isArray(App.pendingNotificationQueue) ? App.pendingNotificationQueue : []; // חלק התרעות (feed.js) – משמר אירועי התרעה מושהים עד שהפוסט נטען
+  App.pendingNotificationSet = App.pendingNotificationSet instanceof Set ? App.pendingNotificationSet : new Set(); // חלק התרעות (feed.js) – מונע כפילויות בתור ההתרעות המושהה
   async function fetchProfile(pubkey) {
     if (!pubkey || pubkey.trim() === '') {
       return {
@@ -52,6 +61,487 @@
     }
 
     return fallback;
+  }
+
+  function getNotificationStorageKey() {
+    // חלק התרעות (feed.js) – מחזיר את מפתח האחסון לפי המפתח הציבורי של המשתמש הנוכחי
+    const pubkey = typeof App.publicKey === 'string' ? App.publicKey.toLowerCase() : '';
+    if (!pubkey) {
+      return null;
+    }
+    return `nostr_notifications_${pubkey}`;
+  }
+
+  function restoreNotificationsFromStorage() {
+    // חלק התרעות (feed.js) – משחזר התרעות מהדפדפן כדי לשמור רציפות בין סשנים
+    try {
+      const storageKey = getNotificationStorageKey();
+      if (!storageKey) {
+        App.notifications = [];
+        App.notificationsById = new Map();
+        App.unreadNotificationCount = 0;
+        refreshNotificationIndicators();
+        return;
+      }
+      const raw = window.localStorage.getItem(storageKey);
+      if (!raw) {
+        App.notifications = [];
+        App.notificationsById = new Map();
+        App.unreadNotificationCount = 0;
+        refreshNotificationIndicators();
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        App.notifications = [];
+        App.notificationsById = new Map();
+        App.unreadNotificationCount = 0;
+        refreshNotificationIndicators();
+        return;
+      }
+      const list = [];
+      const map = new Map();
+      let unread = 0;
+      parsed.forEach((item) => {
+        if (!item || typeof item.id !== 'string') {
+          return;
+        }
+        const record = {
+          id: item.id,
+          type: item.type === 'comment' ? 'comment' : 'like',
+          postId: typeof item.postId === 'string' ? item.postId : '',
+          actorPubkey: typeof item.actorPubkey === 'string' ? item.actorPubkey : '',
+          createdAt: typeof item.createdAt === 'number' ? item.createdAt : 0,
+          content: typeof item.content === 'string' ? item.content : '',
+          read: Boolean(item.read),
+          actorProfile: item.actorProfile || null,
+        };
+        list.push(record);
+        map.set(record.id, record);
+        if (!record.read) {
+          unread += 1;
+        }
+      });
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      App.notifications = list;
+      App.notificationsById = map;
+      App.unreadNotificationCount = unread;
+    } catch (err) {
+      console.warn('Failed to restore notifications', err);
+      App.notifications = [];
+      App.notificationsById = new Map();
+      App.unreadNotificationCount = 0;
+    }
+    refreshNotificationIndicators();
+  }
+
+  function saveNotificationsToStorage() {
+    // חלק התרעות (feed.js) – שומר את מצב ההתרעות ל-localStorage עבור טעינה עתידית
+    const storageKey = getNotificationStorageKey();
+    if (!storageKey) {
+      return;
+    }
+    try {
+      const payload = App.notifications.slice(0, 100).map((notification) => ({
+        id: notification.id,
+        type: notification.type,
+        postId: notification.postId,
+        actorPubkey: notification.actorPubkey,
+        createdAt: notification.createdAt,
+        content: notification.content,
+        read: notification.read,
+        actorProfile: notification.actorProfile
+          ? {
+              name: notification.actorProfile.name || '',
+              picture: notification.actorProfile.picture || '',
+              initials: notification.actorProfile.initials || '',
+            }
+          : null,
+      }));
+      window.localStorage.setItem(storageKey, JSON.stringify(payload));
+    } catch (err) {
+      console.warn('Failed to persist notifications', err);
+    }
+  }
+
+  function refreshNotificationIndicators() {
+    // חלק התרעות (feed.js) – מחשב מחדש את ספירת ההתרעות שלא נקראו ומרענן את חיווי הפעמון
+    if (!Array.isArray(App.notifications)) {
+      App.notifications = [];
+    }
+    App.unreadNotificationCount = App.notifications.reduce((total, notification) => {
+      if (!notification || notification.read) {
+        return total;
+      }
+      return total + 1;
+    }, 0);
+    renderNotificationBadge();
+  }
+
+  function resolvePostOwner(postId) {
+    // חלק התרעות (feed.js) – מנסה להשיג את מחבר הפוסט כדי לוודא שההתרעה שייכת למשתמש הנוכחי
+    if (!postId) {
+      return null;
+    }
+    const cached = App.eventAuthorById?.get(postId);
+    if (typeof cached === 'string' && cached) {
+      return cached.toLowerCase();
+    }
+    if (App.postsById instanceof Map) {
+      const postEvent = App.postsById.get(postId);
+      if (postEvent?.pubkey) {
+        const owner = postEvent.pubkey.toLowerCase();
+        App.eventAuthorById?.set?.(postId, owner);
+        return owner;
+      }
+    }
+    return null;
+  }
+
+  function queuePendingNotification(entry) {
+    // חלק התרעות (feed.js) – תור מושהה לאירועים שטרם ברור למי הם שייכים
+    if (!entry || !entry.event?.id || !entry.postId || !entry.type) {
+      return;
+    }
+    const key = `${entry.type}:${entry.event.id}`;
+    if (App.pendingNotificationSet?.has?.(key)) {
+      return;
+    }
+    App.pendingNotificationSet?.add?.(key);
+    App.pendingNotificationQueue?.push?.({ ...entry, key });
+  }
+
+  function processPendingNotifications(targetPostId) {
+    // חלק התרעות (feed.js) – כשהמידע על פוסט התקבל מעבדים את ההתרעות שהמתינו לו
+    if (!Array.isArray(App.pendingNotificationQueue) || App.pendingNotificationQueue.length === 0) {
+      return;
+    }
+    const remaining = [];
+    App.pendingNotificationQueue.forEach((entry) => {
+      if (targetPostId && entry.postId !== targetPostId) {
+        remaining.push(entry);
+        return;
+      }
+      const owner = resolvePostOwner(entry.postId);
+      if (!owner) {
+        remaining.push(entry);
+        return;
+      }
+      App.pendingNotificationSet?.delete?.(entry.key);
+      attemptNotification(entry.event, entry.postId, entry.type, entry.snippet, entry.event?.pubkey, false);
+    });
+    App.pendingNotificationQueue = remaining;
+  }
+
+  function attemptNotification(event, postId, type, snippet, actorPubkey, allowQueue = true) {
+    // חלק התרעות (feed.js) – מוודא שהאירוע שייך למשתמש ורק אז יוצר התרעה
+    if (!event || !postId || !type) {
+      return;
+    }
+    const current = typeof App.publicKey === 'string' ? App.publicKey.toLowerCase() : '';
+    if (!current) {
+      return;
+    }
+    const owner = resolvePostOwner(postId);
+    if (!owner) {
+      if (allowQueue) {
+        queuePendingNotification({ event, postId, type, snippet });
+      }
+      return;
+    }
+    if (owner !== current) {
+      return;
+    }
+    if (actorPubkey && actorPubkey.toLowerCase() === current) {
+      return;
+    }
+    enqueueNotification(event, postId, type, snippet);
+  }
+
+  function renderNotificationBadge() {
+    // חלק התרעות (feed.js) – מעדכן את תצוגת כפתור הפעמון והבאדג' של ספירת ההתרעות
+    const toggle = document.getElementById('notificationsToggle');
+    const badge = document.getElementById('notificationsBadge');
+    const count = App.unreadNotificationCount || 0;
+    if (!toggle || !badge) {
+      return;
+    }
+    if (count > 0) {
+      badge.textContent = count > 99 ? '99+' : String(count);
+      badge.removeAttribute('hidden');
+      toggle.classList.add('has-unread');
+    } else {
+      badge.textContent = '';
+      if (!badge.hasAttribute('hidden')) {
+        badge.setAttribute('hidden', '');
+      }
+      toggle.classList.remove('has-unread');
+    }
+  }
+
+  function buildNotificationHtml(notification) {
+    // חלק התרעות (feed.js) – בונה HTML לשורה אחת ברשימת ההתרעות
+    const profile = notification.actorProfile || {};
+    const actorNameRaw = profile.name || notification.actorPubkey?.slice?.(0, 8) || 'משתמש';
+    const actorName = App.escapeHtml(actorNameRaw);
+    const initials = profile.initials || App.getInitials(actorNameRaw);
+    const avatar = profile.picture
+      ? `<img src="${profile.picture}" alt="${actorName}">`
+      : `<span>${App.escapeHtml(initials)}</span>`;
+    const actionText = notification.type === 'comment' ? 'הגיב לפוסט שלך' : 'אהב את הפוסט שלך';
+    const safeAction = App.escapeHtml(actionText);
+    const safeSnippet = notification.type === 'comment' && notification.content
+      ? `<span class="notifications-item__snippet">${App.escapeHtml(notification.content)}</span>`
+      : '';
+    const timeLabel = notification.createdAt ? formatTimestamp(notification.createdAt) : '';
+    const timeHtml = timeLabel ? `<time class="notifications-item__time">${timeLabel}</time>` : '';
+    const unreadClass = notification.read ? '' : ' notifications-item--unread';
+    const postIdAttr = notification.postId ? App.escapeHtml(notification.postId) : '';
+    const notificationIdAttr = App.escapeHtml(notification.id);
+    return `
+      <li class="notifications-item${unreadClass}" data-post-id="${postIdAttr}" data-notification-id="${notificationIdAttr}">
+        <div class="notifications-item__avatar">${avatar}</div>
+        <div class="notifications-item__content">
+          <span class="notifications-item__actor">${actorName}</span>
+          <span class="notifications-item__action">${safeAction}</span>
+          ${safeSnippet}
+          ${timeHtml}
+        </div>
+      </li>
+    `;
+  }
+
+  function ensureNotificationProfile(notification) {
+    // חלק התרעות (feed.js) – מושך פרטי פרופיל לשורת התרעה אם טרם הושלמו
+    if (!notification || notification.actorProfile || notification.actorProfileLoading) {
+      return;
+    }
+    if (!notification.actorPubkey) {
+      return;
+    }
+    notification.actorProfileLoading = true;
+    Promise.resolve(
+      fetchProfile(notification.actorPubkey).catch((err) => {
+        console.warn('Notification profile fetch failed', err);
+        return null;
+      })
+    ).then((profile) => {
+      notification.actorProfileLoading = false;
+      if (profile) {
+        notification.actorProfile = profile;
+        saveNotificationsToStorage();
+        renderNotificationList();
+      }
+    });
+  }
+
+  function renderNotificationList() {
+    // חלק התרעות (feed.js) – מרנדר את רשימת ההתרעות בחלון הנפתח
+    const listEl = document.getElementById('notificationsList');
+    const emptyEl = document.getElementById('notificationsEmpty');
+    if (!listEl || !emptyEl) {
+      return;
+    }
+    if (!Array.isArray(App.notifications) || App.notifications.length === 0) {
+      emptyEl.removeAttribute('hidden');
+      listEl.innerHTML = '';
+      return;
+    }
+    emptyEl.setAttribute('hidden', '');
+    const html = App.notifications.map((notification) => {
+      ensureNotificationProfile(notification);
+      return buildNotificationHtml(notification);
+    });
+    listEl.innerHTML = html.join('');
+    Array.from(listEl.querySelectorAll('li[data-post-id]')).forEach((item) => {
+      item.addEventListener('click', () => {
+        const postId = item.getAttribute('data-post-id');
+        const notificationId = item.getAttribute('data-notification-id');
+        if (postId) {
+          const target = document.querySelector(`[data-post-id="${postId}"]`);
+          if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.classList.add('feed-post--highlight');
+            setTimeout(() => target.classList.remove('feed-post--highlight'), 2000);
+          }
+        }
+        if (notificationId && App.notificationsById?.has(notificationId)) {
+          const record = App.notificationsById.get(notificationId);
+          if (record && !record.read) {
+            record.read = true;
+            refreshNotificationIndicators();
+            saveNotificationsToStorage();
+            renderNotificationList();
+          }
+        }
+      });
+    });
+  }
+
+  function registerNotificationRecord(record, options = {}) {
+    // חלק התרעות (feed.js) – מוסיף התרעה חדשה למבנה הנתונים ומעדכן מונים
+    if (!record || typeof record.id !== 'string') {
+      return false;
+    }
+    if (App.notificationsById.has(record.id)) {
+      return false;
+    }
+    App.notificationsById.set(record.id, record);
+    App.notifications.unshift(record);
+    if (App.notifications.length > 100) {
+      const removed = App.notifications.pop();
+      if (removed?.id) {
+        App.notificationsById.delete(removed.id);
+      }
+    }
+    refreshNotificationIndicators();
+    if (!options.skipRender) {
+      renderNotificationList();
+    }
+    saveNotificationsToStorage();
+    return true;
+  }
+
+  function enqueueNotification(event, postId, type, snippet) {
+    // חלק התרעות (feed.js) – מוסיף התרעה חדשה בצורה אסינכרונית כדי לא לחסום את ה-UI
+    if (!event || !event.id || !type) {
+      return;
+    }
+    Promise.resolve().then(async () => {
+      const record = {
+        id: event.id,
+        type,
+        postId,
+        actorPubkey: event.pubkey || '',
+        createdAt: event.created_at || Math.floor(Date.now() / 1000),
+        content: snippet || '',
+        read: false,
+        actorProfile: null,
+      };
+      const inserted = registerNotificationRecord(record, { skipRender: true });
+      if (!inserted) {
+        return;
+      }
+      try {
+        const profile = await fetchProfile(record.actorPubkey);
+        if (profile) {
+          record.actorProfile = profile;
+        }
+      } catch (err) {
+        console.warn('Notification profile fetch failed', err);
+      }
+      refreshNotificationIndicators();
+      saveNotificationsToStorage();
+      renderNotificationList();
+    });
+  }
+
+  function handleNotificationForLike(event, postId, liker, isUnlike) {
+    // חלק התרעות (feed.js) – יוצר התרעה כאשר משתמש אחר עושה לייק לפוסט שלנו
+    if (isUnlike) {
+      return;
+    }
+    attemptNotification(event, postId, 'like', '', liker, true);
+  }
+
+  function handleNotificationForComment(event, parentId) {
+    // חלק התרעות (feed.js) – יוצר התרעה כאשר משתמש אחר מגיב לפוסט שלנו
+    const snippet = typeof event.content === 'string'
+      ? event.content.replace(/\s+/g, ' ').trim().slice(0, 140)
+      : '';
+    attemptNotification(event, parentId, 'comment', snippet, event?.pubkey, true);
+  }
+
+  function markAllNotificationsRead(force = false) {
+    // חלק התרעות (feed.js) – מסמן את כל ההתרעות כנקראו ומעדכן את המונה והאחסון
+    if (!Array.isArray(App.notifications) || App.notifications.length === 0) {
+      App.unreadNotificationCount = 0;
+      renderNotificationBadge();
+      return;
+    }
+    let changed = false;
+    App.notifications.forEach((notification) => {
+      if (!notification.read) {
+        notification.read = true;
+        changed = true;
+      }
+    });
+    if (changed || force) {
+      refreshNotificationIndicators();
+      saveNotificationsToStorage();
+      renderNotificationList();
+    }
+  }
+
+  function setupNotificationUI() {
+    // חלק התרעות (feed.js) – מחבר אירועי UI לכפתור ההתראות ולחלון ההתרעות
+    const toggle = document.getElementById('notificationsToggle');
+    const panel = document.getElementById('notificationsPanel');
+    const markReadButton = document.getElementById('notificationsMarkRead');
+    if (!toggle || !panel) {
+      return;
+    }
+    if (App.notificationsUIBound) {
+      renderNotificationBadge();
+      renderNotificationList();
+      return;
+    }
+    const positionPanel = () => {
+      if (panel.hasAttribute('hidden')) {
+        return;
+      }
+      const toggleRect = toggle.getBoundingClientRect();
+      const panelWidth = panel.offsetWidth || 320;
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+      const horizontalCenter = toggleRect.left + toggleRect.width / 2 - panelWidth / 2;
+      const constrainedLeft = Math.max(8, Math.min(horizontalCenter, viewportWidth - panelWidth - 8));
+      panel.style.left = `${constrainedLeft}px`;
+      panel.style.top = `${toggleRect.bottom + 8}px`;
+    };
+
+    const closePanel = () => {
+      if (!panel.hasAttribute('hidden')) {
+        panel.setAttribute('hidden', '');
+        document.removeEventListener('click', outsideListener, true);
+        window.removeEventListener('resize', positionPanel);
+      }
+    };
+    const outsideListener = (event) => {
+      if (!panel.contains(event.target) && !toggle.contains(event.target)) {
+        closePanel();
+      }
+    };
+    toggle.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const isHidden = panel.hasAttribute('hidden');
+      if (isHidden) {
+        renderNotificationList();
+        panel.removeAttribute('hidden');
+        positionPanel();
+        window.addEventListener('resize', positionPanel);
+        markAllNotificationsRead();
+        document.addEventListener('click', outsideListener, true);
+      } else {
+        closePanel();
+      }
+    });
+    if (markReadButton) {
+      markReadButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        markAllNotificationsRead(true);
+      });
+    }
+    panel.addEventListener('click', (event) => {
+      event.stopPropagation();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closePanel();
+      }
+    });
+    App.notificationsUIBound = true;
+    refreshNotificationIndicators();
+    renderNotificationList();
   }
 
   function removePostElement(eventId) {
@@ -144,6 +634,7 @@
         }
       }
       updateLikeIndicator(eventId);
+      handleNotificationForLike(event, eventId, liker, isUnlike);
     });
   }
 
@@ -212,6 +703,7 @@
       App.eventAuthorById.set(event.id, event.pubkey.toLowerCase());
     }
     updateCommentsForParent(parentId);
+    handleNotificationForComment(event, parentId);
   }
 
   async function updateCommentsForParent(parentId) {
@@ -443,6 +935,8 @@
       if (event?.id && event?.pubkey) {
         App.eventAuthorById.set(event.id, event.pubkey.toLowerCase());
       }
+      App.postsById.set(event.id, event); // חלק התרעות (feed.js) – שומר את אירוע הפוסט במפה לשימוש בהתרעות
+      processPendingNotifications(event.id); // חלק התרעות (feed.js) – מנסה לשחרר התרעות מושהות עבור הפוסט הזה
       const safeName = App.escapeHtml(profileData.name || '');
       const safeBio = profileData.bio ? App.escapeHtml(profileData.bio) : '';
       const article = document.createElement('article');
@@ -622,6 +1116,11 @@
 
   async function loadFeed() {
     if (!App.pool) return;
+    if (!App.notificationsRestored && typeof App.publicKey === 'string' && App.publicKey) {
+      restoreNotificationsFromStorage();
+      App.notificationsRestored = true;
+    }
+    setupNotificationUI();
     const statusEl = document.getElementById('connection-status');
     if (statusEl) {
       // חלק פיד (feed.js) – מציג למשתמש שהפיד נטען

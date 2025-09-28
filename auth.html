@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>יאללה תקשורת – כניסה</title>
+    <!-- חלק ראש (auth.html) – מגדיר את אייקון הלשונית באמצעות yalla-signal.svg -->
+    <link rel="icon" type="image/svg+xml" href="./icons/yalla-signal.svg" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
@@ -13,72 +15,96 @@
     <link rel="stylesheet" href="./styles/auth.css" />
   </head>
   <body class="auth-body">
-    <div class="auth-shell">
-      <section class="auth-brand">
-        <h1 class="auth-brand__title">יאללה תקשורת</h1>
-        <p class="auth-brand__subtitle">
-          רשת קהילה חיה ומבוזרת על גבי Nostr. שמרו את המפתח שלכם ותוכלו
-          לגשת לכל הפוסטים, החברים והשיחות מכל מכשיר.
-        </p>
-        <div class="auth-links">
-          <span><i class="fa-solid fa-shield-halved"></i> המפתח הפרטי הוא הזהות שלכם. שמרו עליו במקום מאובטח.</span>
-          <span><i class="fa-solid fa-mobile-screen-button"></i> אפשר להתחבר מטלפון, טאבלט או מחשב באמצעות אותו מפתח.</span>
-        </div>
-      </section>
-      <section class="auth-card" aria-live="polite">
-        <div class="auth-tabs" role="tablist">
-          <button class="auth-tab is-active" data-tab="create" role="tab" aria-selected="true">
-            משתמש חדש
-          </button>
-          <button class="auth-tab" data-tab="import" role="tab" aria-selected="false">
-            כבר יש לי מפתח
-          </button>
-        </div>
-        <div class="auth-panel is-active" id="authCreatePanel" role="tabpanel">
-          <h3>קבלו מפתח חדש</h3>
-          <p>
-            ניצור עבורך מפתח פרטי חדש. העתק אותו ושמור אותו לפני שאתה ממשיך – אין דרך לשחזר אותו אם תאבד אותו.
-          </p>
-          <textarea id="authCreateKey" class="auth-textarea" readonly placeholder="לחץ \"צור מפתח\" כדי לקבל מפתח חדש"></textarea>
-          <div class="auth-actions">
-            <button class="button-primary" id="authGenerateButton">
-              <i class="fa-solid fa-key"></i>
-              צור מפתח
-            </button>
-            <button class="button-secondary" id="authCopyCreateButton" disabled>
-              <i class="fa-solid fa-copy"></i>
-              העתק
-            </button>
-            <button class="button-secondary" id="authDownloadCreateButton" disabled>
-              <i class="fa-solid fa-file-arrow-down"></i>
-              הורד גיבוי
-            </button>
-          </div>
-          <label class="auth-checkbox">
-            <input type="checkbox" id="authCreateConfirm" />
-            שמרתי את המפתח במקום בטוח ואני מבין שאם אאבד אותו לא אוכל להיכנס שוב.
-          </label>
-          <button class="button-primary" id="authContinueButton" disabled>
-            המשך לרשת
-          </button>
-          <div class="auth-status" id="authCreateStatus"></div>
-        </div>
-        <div class="auth-panel" id="authImportPanel" role="tabpanel">
-          <h3>ייבוא מפתח קיים</h3>
-          <p>
-            הדבק כאן את המפתח הפרטי שלך (nsec או hex). נשמור אותו בדפדפן ונתחבר לאותו פרופיל.
-          </p>
-          <textarea id="authImportInput" class="auth-textarea" placeholder="לדוגמה: nsec1... או 64 תווים ב-hex"></textarea>
-          <div class="auth-actions">
-            <button class="button-primary" id="authImportButton">
-              <i class="fa-solid fa-arrow-right-to-bracket"></i>
-              ייבוא והמשך
-            </button>
-          </div>
-          <div class="auth-status" id="authImportStatus"></div>
-        </div>
-      </section>
+    <!-- HEADER עליון בסגנון הרשת החברתית -->
+    <header class="top-bar">
+      <span class="app-name">יאללה תקשורת</span>
+      <div class="top-bar__actions">
+        <!-- כפתור דף הבית הוסר לפי בקשה -->
+      </div>
+    </header>
+
+    <!-- כותרת מרכזית גדולה עם מסגרת מתחתיה -->
+    <div class="auth-hero">
+      <h1 class="auth-hero__title">כניסה לרשת</h1>
+      <hr class="auth-hero__divider" />
+      <p class="auth-hero__subtitle">התחבר לקהילה המבוזרת שלך</p>
     </div>
+
+    <!-- מעטפת מרכזית -->
+    <main class="auth-layout">
+      <!-- כרטיס התחברות -->
+      <section class="auth-card auth-card--import" aria-live="polite">
+        <div class="auth-field auth-field--textarea">
+          <label class="auth-field__label" for="authImportInput">מפתח פרטי</label>
+          <textarea
+            id="authImportInput"
+            class="auth-textarea"
+            placeholder="אנא העתק את מפתח המשתמש שלך כאן"
+          ></textarea>
+          <p class="auth-field__hint">ניתן להזין מפתח nsec או 64 תווי hex.</p>
+        </div>
+        <div class="auth-actions auth-actions--stack">
+          <button class="button-primary" id="authImportButton">
+            <i class="fa-solid fa-arrow-right-to-bracket"></i>
+            התחבר עם המפתח
+          </button>
+          <button class="button-link" id="authGoCreateButton">
+            אין לך מפתח? צור חשבון חדש
+          </button>
+        </div>
+        <div class="auth-status" id="authImportStatus"></div>
+      </section>
+
+      <!-- פאנל יצירת מפתח -->
+      <section class="auth-card auth-card--create" id="authCreatePanel" aria-live="polite" hidden>
+        <button class="auth-card__back" id="authBackToImport" aria-label="חזרה להתחברות">
+          <i class="fa-solid fa-arrow-right"></i>
+          חזרה
+        </button>
+        <h2 class="auth-card__title">צור חשבון חדש</h2>
+        <p class="auth-card__subtitle">
+          ניצור עבורך מפתח פרטי חדש. שמור אותו במקום בטוח – זה הזהות הדיגיטלית שלך.
+        </p>
+        <div class="auth-field auth-field--textarea">
+          <label class="auth-field__label" for="authCreateKey">המפתח החדש שלך</label>
+          <textarea
+            id="authCreateKey"
+            class="auth-textarea"
+            readonly
+            placeholder="לחץ 'צור מפתח' כדי לקבל מפתח חדש"
+          ></textarea>
+        </div>
+        <div class="auth-actions">
+          <button class="button-primary" id="authGenerateButton">
+            <i class="fa-solid fa-key"></i>
+            צור מפתח
+          </button>
+          <button class="button-secondary" id="authCopyCreateButton" disabled>
+            <i class="fa-solid fa-copy"></i>
+            העתק
+          </button>
+          <button class="button-secondary" id="authDownloadCreateButton" disabled>
+            <i class="fa-solid fa-file-arrow-down"></i>
+            הורד גיבוי
+          </button>
+        </div>
+        <div class="auth-share">
+          <button class="button-secondary button-secondary--whatsapp" id="authShareWhatsappButton" disabled>
+            <i class="fa-brands fa-whatsapp"></i>
+            שלח בוואטסאפ
+          </button>
+        </div>
+        <label class="auth-checkbox">
+          <input type="checkbox" id="authCreateConfirm" />
+          שמרתי את המפתח במקום בטוח ואני מבין שאם אאבד אותו לא אוכל להיכנס שוב.
+        </label>
+        <button class="button-primary" id="authContinueButton" disabled>
+          התחבר לרשת
+        </button>
+        <div class="auth-status" id="authCreateStatus"></div>
+      </section>
+    </main>
+
     <script src="https://unpkg.com/nostr-tools@2.7.2/lib/nostr.bundle.js"></script>
     <script src="./config.js"></script>
     <script src="./key-utils.js"></script>

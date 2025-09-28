@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>יאללה תקשורת</title>
+    <!-- חלק ראש (index.html) – מגדיר אייקון ללשונית הדפדפן באמצעות yalla-signal.svg שתוכנן עבור האות Y -->
+    <link rel="icon" type="image/svg+xml" href="./icons/yalla-signal.svg">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="./styles/facebook-theme.css">
     <link rel="stylesheet" href="./styles/media-overrides.css">
@@ -23,8 +25,9 @@
                 <button class="circle-button" aria-label="חיפוש">
                     <i class="fa-solid fa-magnifying-glass"></i>
                 </button>
-                <button class="circle-button" aria-label="הודעות">
-                    <i class="fa-brands fa-facebook-messenger"></i>
+                <button class="circle-button" id="notificationsToggle" aria-label="התראות">
+                    <i class="fa-solid fa-bell"></i>
+                    <span class="notifications-badge" id="notificationsBadge" hidden></span>
                 </button>
                 <button class="circle-button" onclick="openKeyViewer()" aria-label="הצגת מפתח">
                     <i class="fa-solid fa-key"></i>
@@ -80,6 +83,16 @@
                 <input id="composeMediaInput" type="file" accept="image/*,video/*" hidden>
             </div>
         </section>
+        <div class="notifications-panel" id="notificationsPanel" hidden>
+            <header class="notifications-panel__header">
+                <h2>התראות</h2>
+                <button type="button" class="notifications-panel__mark" id="notificationsMarkRead">סמן כנקראו</button>
+            </header>
+            <div class="notifications-panel__body">
+                <p class="notifications-panel__empty" id="notificationsEmpty">אין התרעות חדשות כרגע.</p>
+                <ul class="notifications-panel__list" id="notificationsList"></ul>
+            </div>
+        </div>
         <main class="feed-list" id="feed">
             <div class="feed-empty" id="empty-state">
                 <i class="fa-regular fa-face-smile"></i>
