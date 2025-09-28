@@ -1,3 +1,16 @@
+      const isLongContent = rawContent.length > 220 || textLines.length > 2;
+      const contentHtml = safeContent
+        ? `
+        <div class="feed-post__content ${isLongContent ? 'feed-post__content--collapsed' : ''}" data-post-content="${event.id}">
+          <div class="feed-post__content-text">${safeContent}</div>
+          ${
+            isLongContent
+              ? `<button class="feed-post__more" type="button" data-read-more="${event.id}" aria-label="הצג עוד מהפוסט">... עוד</button>`
+              : ''
+          }
+        </div>
+      `
+        : '';
 ;(function initFeed(window) {
   const App = window.NostrApp || (window.NostrApp = {});
   App.deletedEventIds = App.deletedEventIds || new Set(); // חלק פיד (feed.js) – שומר מזהים של פוסטים שנמחקו כדי שלא להציגם
@@ -438,7 +451,8 @@
         }
       });
 
-      const safeContent = App.escapeHtml(textLines.join('\n')).replace(/\n/g, '<br>');
+      const rawContent = textLines.join('\n');
+      const safeContent = App.escapeHtml(rawContent).replace(/\n/g, '<br>');
       const mediaHtml = createMediaHtml(mediaLinks);
       const metaParts = [];
       if (safeBio) {
@@ -483,7 +497,7 @@
             ${metaHtml ? `<span class="feed-post__meta">${metaHtml}</span>` : ''}
           </div>
         </header>
-        ${safeContent ? `<div class="feed-post__content">${safeContent}</div>` : ''}
+        ${contentHtml}
         ${mediaHtml ? `<div class="feed-post__media">${mediaHtml}</div>` : ''}
         <footer class="feed-post__stats">
           <span class="feed-post__likes" data-like-total="${event.id}">
@@ -515,13 +529,13 @@
           <form class="feed-comments__form" data-comment-form="${event.id}">
             <div class="feed-comments__composer">
               <div class="feed-comments__avatar">${viewerAvatar}</div>
-              <textarea rows="2" placeholder="כתוב תגובה..." required></textarea>
-            </div>
-            <div class="feed-comments__actions">
-              <button class="feed-comments__submit" type="submit">
-                <i class="fa-solid fa-paper-plane"></i>
-                <span>שלח</span>
-              </button>
+              <div class="feed-comments__input">
+                <textarea rows="2" placeholder="כתוב תגובה..." required></textarea>
+                <!-- חלק תגובות (feed.js) – כפתור שליחה בתוך קפסולה פנימית בסגנון פייסבוק -->
+                <button class="feed-comments__submit" type="submit" aria-label="שלח תגובה">
+                  <i class="fa-solid fa-paper-plane"></i>
+                </button>
+              </div>
             </div>
           </form>
         </section>
@@ -530,8 +544,29 @@
       feed.appendChild(article);
       updateLikeIndicator(event.id);
       wireCommentForm(article, event.id);
+      wireReadMore(article, event.id);
       hydrateCommentsSection(article, event.id);
     }
+  }
+
+  function wireReadMore(articleEl, eventId) {
+    // חלק פיד (feed.js) – מאפשר לחשוף פוסט ארוך לאחר לחיצה על כפתור "עוד"
+    if (!articleEl || !eventId) {
+      return;
+    }
+    const button = articleEl.querySelector(`button[data-read-more="${eventId}"]`);
+    if (!button) {
+      return;
+    }
+    const contentWrapper = articleEl.querySelector(`.feed-post__content[data-post-content="${eventId}"]`);
+    if (!contentWrapper) {
+      return;
+    }
+
+    button.addEventListener('click', () => {
+      contentWrapper.classList.remove('feed-post__content--collapsed');
+      button.remove();
+    });
   }
 
   async function hydrateCommentsSection(articleEl, parentId) {
