@@ -1,16 +1,3 @@
-      const isLongContent = rawContent.length > 220 || textLines.length > 2;
-      const contentHtml = safeContent
-        ? `
-        <div class="feed-post__content ${isLongContent ? 'feed-post__content--collapsed' : ''}" data-post-content="${event.id}">
-          <div class="feed-post__content-text">${safeContent}</div>
-          ${
-            isLongContent
-              ? `<button class="feed-post__more" type="button" data-read-more="${event.id}" aria-label="הצג עוד מהפוסט">... עוד</button>`
-              : ''
-          }
-        </div>
-      `
-        : '';
 ;(function initFeed(window) {
   const App = window.NostrApp || (window.NostrApp = {});
   App.deletedEventIds = App.deletedEventIds || new Set(); // חלק פיד (feed.js) – שומר מזהים של פוסטים שנמחקו כדי שלא להציגם
@@ -451,8 +438,7 @@
         }
       });
 
-      const rawContent = textLines.join('\n');
-      const safeContent = App.escapeHtml(rawContent).replace(/\n/g, '<br>');
+      const safeContent = App.escapeHtml(textLines.join('\n')).replace(/\n/g, '<br>');
       const mediaHtml = createMediaHtml(mediaLinks);
       const metaParts = [];
       if (safeBio) {
@@ -497,7 +483,7 @@
             ${metaHtml ? `<span class="feed-post__meta">${metaHtml}</span>` : ''}
           </div>
         </header>
-        ${contentHtml}
+        ${safeContent ? `<div class="feed-post__content">${safeContent}</div>` : ''}
         ${mediaHtml ? `<div class="feed-post__media">${mediaHtml}</div>` : ''}
         <footer class="feed-post__stats">
           <span class="feed-post__likes" data-like-total="${event.id}">
@@ -544,29 +530,8 @@
       feed.appendChild(article);
       updateLikeIndicator(event.id);
       wireCommentForm(article, event.id);
-      wireReadMore(article, event.id);
       hydrateCommentsSection(article, event.id);
     }
-  }
-
-  function wireReadMore(articleEl, eventId) {
-    // חלק פיד (feed.js) – מאפשר לחשוף פוסט ארוך לאחר לחיצה על כפתור "עוד"
-    if (!articleEl || !eventId) {
-      return;
-    }
-    const button = articleEl.querySelector(`button[data-read-more="${eventId}"]`);
-    if (!button) {
-      return;
-    }
-    const contentWrapper = articleEl.querySelector(`.feed-post__content[data-post-content="${eventId}"]`);
-    if (!contentWrapper) {
-      return;
-    }
-
-    button.addEventListener('click', () => {
-      contentWrapper.classList.remove('feed-post__content--collapsed');
-      button.remove();
-    });
   }
 
   async function hydrateCommentsSection(articleEl, parentId) {
